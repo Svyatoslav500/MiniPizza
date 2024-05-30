@@ -1,220 +1,120 @@
-import math
-import random
-import time
 import tkinter as tk
+from tkinter import messagebox
+import random
 
-root = tk.Tk()
-root.geometry("750x600")
-root.title("Мини-пиццерия")
-root.iconbitmap("pizza.ico")
-root.wm_resizable(False, False)
+class PizzeriaGame(tk.Tk):
+    def __init__(self):
+        super().__init__()
 
-WIDTH = 510
-HEIGHT = 510
-CC = WIDTH // 2, HEIGHT // 2
+        self.title("Мини-пиццерия")
+        self.geometry("800x600")
+        self.iconbitmap("pizza.ico")
 
-canvas = tk.Canvas(root, width=510, height=510)
-canvas.place(x=150, y=0)
-f = None
-
-sizes = ["small", "medium", "big"]
-
-
-class Base:
-    def __init__(self, canvas, type):
-        self.canvas = canvas
-        self.id = None
-        self.type = type
+        # Ингредиенты и заказ клиента
+        self.ingredients = ["Добавить сыр", "Добавить колбаски", "Добавить грибы", "Добавить курицу",
+                            "Добавить пепперони"]
+        self.sous = 'Добавить соус'
+        self.client_order = []
+        self.canvas = tk.Canvas(self, width=800, height=250)
+        self.generate_client_order()
+        self.selected_ingredients = []
         self.size = 0
-        self.pos = []
-        self.sauce = False
-        self.fill = {
-            "pepp": 0,
-            "chicken": 0,
-            "cheese": 0,
-            "mush": 0,
-            "meat": 0
-        }
-        self.obj = []
-        self.speed = 0
-        self.set()
+        self.pech = None
+        # Создание кнопок
+        self.create_widgets()
+        self.pizzaf = self.otris_pizza()
 
+    def create_widgets(self):
+        tk.Label(self, text="Пиццерия", font=("Helvetica", 20)).grid(row=0, column=0, columnspan=3, pady=10)
+        self.order_label = tk.Label(self, text="Заказ: " + ", ".join(self.client_order))
+        self.order_label.grid(row=1, column=0, columnspan=3, pady=5)
+        self.canvas.grid(row=2, column=0, columnspan=3, pady=10)
 
-    def set(self):
-        if self.type == "small":
-            self.size = 300
-        elif self.type == "medium":
-            self.size = 400
+        row_idx = 3
+        col_idx = 0
+        for ingredient in self.ingredients:
+            tk.Button(self, text=ingredient, command=lambda i=ingredient: self.add_ingredient(i)).grid(row=row_idx,
+                                                                                                       column=col_idx,
+                                                                                                       padx=5, pady=2)
+            col_idx += 1
+            if col_idx > 2:  # размещаем по 3 кнопки в ряд
+                col_idx = 0
+                row_idx += 1
+
+        tk.Button(self, text=self.sous, command=lambda i=self.sous: self.add_sous(i)).grid(row=row_idx,
+                                                                                           column=col_idx, padx=5,
+                                                                                           pady=2)
+        row_idx += 1
+
+        self.selected_label = tk.Label(self, text="Выбранные: " + ", ".join(self.selected_ingredients))
+        self.selected_label.grid(row=row_idx+1, column=0, columnspan=3, pady=10)
+
+    def add_sous(self, sou):
+        if not self.pech:
+            self.pech = tk.Button(self, text="В печь", command=self.check_order)
+            self.pech.grid(row=8, column=1, padx=5, pady=5)
+
+        if sou not in self.selected_ingredients:
+            self.selected_ingredients.append(sou)
+            self.update_selected_label()
+
+    def add_ingredient(self, ingredient):
+        if ingredient not in self.selected_ingredients:
+            self.selected_ingredients.append(ingredient)
+            self.update_selected_label()
+
+    def update_selected_label(self):
+        self.selected_label.config(text="Выбранные: " + ", ".join(self.selected_ingredients))
+
+    def check_order(self):
+        if sorted(self.selected_ingredients) == sorted(self.client_order):
+            self.animate_pizza()
         else:
-            self.size = 500
+            messagebox.showwarning("Результат", "Заказ выполнен неверно!")
+            self.reset_game()
 
-        self.pos = [CC[0] - self.size / 2, CC[1] - self.size / 2,
-                    CC[0] + self.size / 2, CC[1] + self.size / 2]
-        self.id = self.canvas.create_oval(self.pos, fill="#f5deb3")
-        self.obj.append(self.id)
+    def animate_pizza(self):
+        def move_pizza():
+            self.canvas.move(self.pizzaf, 5, 0)
+            x1, y1, x2, y2 = self.canvas.coords(self.pizzaf)
+            if x1 < 800:
+                self.after(50, move_pizza)
+            else:
+                messagebox.showinfo("Результат", "Заказ выполнен верно!")
+                self.after(0, self.reset_game)  # Ensure the reset happens after the message box
 
-    def draw(self):
-        global order
-        if canvas.coords(self.id)[0] <= 600:
-            for id in self.obj:
-                self.canvas.move(id, self.speed, 0)
+        move_pizza()
 
-        else:
-            canvas.delete(self.id)
-            for id in self.obj:
-                canvas.delete(id)
-            canvas.delete(order)
-            size = random.choice(sizes)
-            order = canvas.create_text(90, 20, text=f"Новая пицца: {size}")
-            self.__init__(canvas, size)
+    def reset_game(self):
+        self.selected_ingredients = []
+        self.generate_client_order()
+        self.update_selected_label()
+        self.order_label.config(text="Заказ: " + ", ".join(self.client_order))
+        if self.pech:
+            self.pech.destroy()
+            self.pech = None
+        self.pizzaf = self.otris_pizza()  # Create a new random-sized pizza
 
+    def generate_client_order(self):
+        self.client_order = []
+        for i in range(random.randint(1, 5)):
+            a = random.choice(self.ingredients)
+            if a not in self.client_order:
+                self.client_order.append(a)
+        self.client_order.append(self.sous)
 
-size = random.choice(sizes)
-order = canvas.create_text(90, 20, text=f"Новая пицца: {size}")
-pizza = Base(canvas, size)
-
-
-def add_sauce():
-    pos = [CC[0] - (pizza.size - 50) / 2, CC[1] - (pizza.size - 50) / 2,
-           CC[0] + (pizza.size - 50) / 2, CC[1] + (pizza.size - 50) / 2]
-    pizza.obj.append(canvas.create_oval(pos, fill="tomato"))
-    pizza.sauce = True
-    ready()
-
-
-def add_pepp():
-    pos = [CC[0] - (pizza.size - 50) / 2 - 100, CC[1] - (pizza.size - 50) / 2 - 100,
-           CC[0] + (pizza.size - 50) / 2 - 100, CC[1] + (pizza.size - 50) / 2 - 100]
-    size = 30
-
-    for n in range(3):
-        spawn = random.randint(pos[0], pos[2]), random.randint(pos[1], pos[3])
-        distance = math.sqrt((spawn[0] - CC[0]) ** 2 + (spawn[1] - CC[1]) ** 2)
-        while distance > (pos[2] - pos[0]) / 2.5:
-            spawn = random.randint(pos[0], pos[2]), random.randint(pos[1], pos[3])
-            distance = math.sqrt((spawn[0] - CC[0]) ** 2 + (spawn[1] - CC[1]) ** 2)
-
-        pizza.obj.append(canvas.create_oval(spawn[0], spawn[1], spawn[0] + size, spawn[1] + size, fill="red"))
-        pizza.fill["pepp"] += 3
+    def otris_pizza(self):
+        p = random.randint(0, 2)
+        if p == 0:
+            self.size = 50
+        elif p == 1:
+            self.size = 100
+        elif p == 2:
+            self.size = 150
+        pizza = self.canvas.create_oval(350, 50, 350 + self.size, 50 + self.size, fill="yellow")
+        return pizza
 
 
-def add_chicken():
-    pos = [CC[0] - (pizza.size - 50) / 2 - 100, CC[1] - (pizza.size - 50) / 2 - 100,
-           CC[0] + (pizza.size - 50) / 2 - 100, CC[1] + (pizza.size - 50) / 2 - 100]
-    size = 30
-
-    for n in range(3):
-        spawn = random.randint(pos[0], pos[2]), random.randint(pos[1], pos[3])
-        distance = math.sqrt((spawn[0] - CC[0]) ** 2 + (spawn[1] - CC[1]) ** 2)
-        while distance > (pos[2] - pos[0]) / 2.5:
-            spawn = random.randint(pos[0], pos[2]), random.randint(pos[1], pos[3])
-            distance = math.sqrt((spawn[0] - CC[0]) ** 2 + (spawn[1] - CC[1]) ** 2)
-
-        pizza.obj.append(canvas.create_rectangle(spawn[0], spawn[1], spawn[0] + size, spawn[1] + size, fill="beige"))
-        pizza.fill["chicken"] += 3
-
-
-def add_cheese():
-    pos = [CC[0] - (pizza.size - 50) / 2 - 100, CC[1] - (pizza.size - 50) / 2 - 100,
-           CC[0] + (pizza.size - 50) / 2 - 100, CC[1] + (pizza.size - 50) / 2 - 100]
-    size = 50
-
-    for n in range(3):
-        spawn = random.randint(pos[0], pos[2]), random.randint(pos[1], pos[3])
-        distance = math.sqrt((spawn[0] - CC[0]) ** 2 + (spawn[1] - CC[1]) ** 2)
-        while distance > (pos[2] - pos[0]) / 2.5:
-            spawn = random.randint(pos[0], pos[2]), random.randint(pos[1], pos[3])
-            distance = math.sqrt((spawn[0] - CC[0]) ** 2 + (spawn[1] - CC[1]) ** 2)
-
-        pizza.obj.append(canvas.create_polygon(spawn[0], spawn[1],
-                                               spawn[0] + size, spawn[1],
-                                               spawn[0] + size / 2, spawn[1] + size, fill="gold"))
-        pizza.fill["cheese"] += 3
-
-
-def add_mush():
-    pos = [CC[0] - (pizza.size - 50) / 2 - 100, CC[1] - (pizza.size - 50) / 2 - 100,
-           CC[0] + (pizza.size - 50) / 2 - 100, CC[1] + (pizza.size - 50) / 2 - 100]
-    size = 30
-
-    for n in range(3):
-        spawn = random.randint(pos[0], pos[2]), random.randint(pos[1], pos[3])
-        distance = math.sqrt((spawn[0] - CC[0]) ** 2 + (spawn[1] - CC[1]) ** 2)
-        while distance > (pos[2] - pos[0]) / 2.5:
-            spawn = random.randint(pos[0], pos[2]), random.randint(pos[1], pos[3])
-            distance = math.sqrt((spawn[0] - CC[0]) ** 2 + (spawn[1] - CC[1]) ** 2)
-
-        pizza.obj.append(
-            canvas.create_oval(spawn[0], spawn[1], spawn[0] + size, spawn[1] + size / 2, fill="darkorange4"))
-        pizza.obj.append(canvas.create_rectangle(spawn[0] + size / 3, spawn[1] + size / 2,
-                                                 spawn[0] + 2 * size / 3, spawn[1] + size, fill="darkorange4"))
-
-        pizza.fill["mush"] += 3
-
-
-def add_meat():
-    pos = [CC[0] - (pizza.size - 50) / 2 - 100, CC[1] - (pizza.size - 50) / 2 - 100,
-           CC[0] + (pizza.size - 50) / 2 - 100, CC[1] + (pizza.size - 50) / 2 - 100]
-    size = 15
-
-    for n in range(3):
-        spawn = random.randint(pos[0], pos[2]), random.randint(pos[1], pos[3])
-        distance = math.sqrt((spawn[0] - CC[0]) ** 2 + (spawn[1] - CC[1]) ** 2)
-        while distance > (pos[2] - pos[0]) / 2.5:
-            spawn = random.randint(pos[0], pos[2]), random.randint(pos[1], pos[3])
-            distance = math.sqrt((spawn[0] - CC[0]) ** 2 + (spawn[1] - CC[1]) ** 2)
-
-        pizza.obj.append(canvas.create_oval(spawn[0], spawn[1], spawn[0] + size, spawn[1] + size, fill="orangered2"))
-        pizza.fill["meat"] += 3
-
-
-def ready():
-    global f
-    f = tk.Button(text="В печь!", command=finish)
-    f.place(x=620, y=500)
-
-
-sauce = tk.Button(text="Добавить соус", command=add_sauce)
-sauce.place(x=10, y=550)
-
-pepp = tk.Button(text="Добавить пепперони", command=add_pepp)
-pepp.place(x=115, y=550)
-
-chicken = tk.Button(text="Добавить курицы", command=add_chicken)
-chicken.place(x=255, y=550)
-
-cheese = tk.Button(text="Добавить сыр", command=add_cheese)
-cheese.place(x=380, y=550)
-
-mush = tk.Button(text="Добавить грибы", command=add_mush)
-mush.place(x=485, y=550)
-
-meat = tk.Button(text="Добавить колбаски", command=add_meat)
-meat.place(x=600, y=550)
-
-
-def money():
-    bank = 0
-    for item in pizza.fill:
-        bank += pizza.fill[item]
-    if pizza.type == "small":
-        bank += 100
-    elif pizza.type == "medium":
-        bank += 150
-    else:
-        bank += 200
-    return bank
-
-
-def finish():
-    global f
-    pizza.speed = 2
-    f.destroy()
-    pizza.obj.append(canvas.create_text(CC[0], CC[1], text=f"Цена пиццы: {money()} рублей."))
-
-
-while True:
-    root.update_idletasks()
-    root.update()
-    pizza.draw()
-    time.sleep(0.01)
+if __name__ == "__main__":
+    game = PizzeriaGame()
+    game.mainloop()
